@@ -1,0 +1,123 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Sharing application</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+<body>
+
+<div id="map" style="height: 90vh;"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+    const socket = io();
+
+    socket.on('connect', () => {
+        console.log('Connected:', socket.id);
+    });
+</script>
+
+
+
+
+<script>
+    // Default map load
+    const map = L.map('map').setView([51.505, -0.09], 13);
+
+const remoteMarker=new Map();
+
+    socket.on('location update', (data) => {
+        
+        const { id,lat, lng } = data;
+       if(!remoteMarker.has(id)){
+      const marker= L.marker([lat, lng]).addTo(map)
+         .bindPopup(`User: ${id}`)
+         .openPopup();
+         remoteMarker.set(id,marker);
+       }
+       else{
+        const existingMarker=remoteMarker.get(id);
+        existingMarker.setLatLng([lat, lng]);
+         existingMarker.getPopup().setContent(`User: ${id}`);
+       }
+    });
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    function getUserLocation() {
+        return new Promise((resolve, reject) => {
+
+            if (navigator.geolocation) {
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        console.log('Got user location');
+
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        // Move map to user location
+                       
+
+                        console.log('User location:', lat, lng);
+
+                        resolve({ lat, lng });
+                    },
+
+                    (error) => {
+                        console.error('Error getting location:', error);
+                        reject(error);
+                    },
+
+                    {
+                        enableHighAccuracy: true
+                    }
+                );
+
+            } else {
+                alert('Geolocation is not available in this browser.');
+                reject(new Error('Geolocation not supported'));
+            }
+        });
+    }
+
+    let myCurrentLocation = null;
+
+    async function main(){
+
+        setInterval (async ()=>{
+            const{lat,lng}=await getUserLocation();
+            socket.emit('client location update',{lat,lng});
+            if(!myCurrentLocation){
+                myCurrentLocation=L.marker([lat, lng]).addTo(map)
+                 .bindPopup('You are here!')
+                 .openPopup();
+            }
+            else{
+                myCurrentLocation.setLatLng([lat, lng]);
+            }
+        },10 * 1000)
+      
+    }
+
+    window.addEventListener('load',main);
+
+    // Call function
+    getUserLocation().then(p=>console.log({p}));
+</script>
+
+</body>
+</html>   is this code is correct or not
